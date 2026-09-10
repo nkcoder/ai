@@ -3,7 +3,7 @@
 **You own the skill's voice.**
 
 1. Use the **skill-creator** skill for authoring SKILL.md files.
-2. Validate the skill: frontmatter has `name` and `description`, referenced files exist, cross-skill links resolve.
+2. Run `node skills/dan-mode/scripts/check-skills.mjs` and fix every line it prints (the **encode-lessons-in-structure** principle skill). It checks frontmatter, that `name` matches the directory, that referenced files resolve, and that cross-skill links, slash commands, and `subagent_type` values name something real. A new external skill or command the repo deliberately does not ship gets an entry in the script's allowlist, in the same PR.
 3. Test cases if structural. Skip if subjective.
 4. Run **Opening a PR**.
 
