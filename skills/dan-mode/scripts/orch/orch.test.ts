@@ -102,7 +102,7 @@ async function makeGitStack(directory: string): Promise<{
   };
 }
 
-async function withFakeGt<T>({
+async function withFakeGhStack<T>({
   directory,
   operation,
   output,
@@ -112,39 +112,30 @@ async function withFakeGt<T>({
   output: string;
 }): Promise<T> {
   const bin = join(directory, "bin");
-  const outputPath = join(directory, "gt-output.txt");
+  const outputPath = join(directory, "gh-stack-output.json");
   await mkdir(bin);
   await writeFile(outputPath, output);
-  const gt = join(bin, "gt");
+  const gh = join(bin, "gh");
   await writeFile(
-    gt,
+    gh,
     `#!/usr/bin/env bash
 set -euo pipefail
 if [ "$(pwd -P)" != "${realpathSync(join(directory, "repo"))}" ]; then
-  printf 'gt ran outside the fixture repo: %s\\n' "$(pwd -P)" >&2
+  printf 'gh ran outside the fixture repo: %s\\n' "$(pwd -P)" >&2
   exit 2
 fi
 case "$*" in
-  "--no-interactive log short --stack --reverse")
+  "stack view --json")
     cat "${outputPath}"
     ;;
-  "--no-interactive info stack/merged")
-    printf 'stack/merged\\nPR #10 (Merged) merged change\\n'
-    ;;
-  "--no-interactive info stack/closed")
-    printf 'stack/closed\\nPR #13 (Closed) closed change\\n'
-    ;;
-  "--no-interactive info stack/open")
-    printf 'stack/open\\nPR #11 (Needs approvals) open change\\n'
-    ;;
   *)
-    printf 'unexpected gt arguments: %s\\n' "$*" >&2
+    printf 'unexpected gh arguments: %s\\n' "$*" >&2
     exit 2
     ;;
 esac
 `
   );
-  await chmod(gt, 0o755);
+  await chmod(gh, 0o755);
 
   const originalPath = process.env.PATH;
   process.env.PATH = `${bin}:${originalPath ?? ""}`;
@@ -406,16 +397,45 @@ describe("Store", () => {
     ]);
   });
 
-  it("resolves the ordered Graphite frontier and validates an optional pin", async () => {
+  it("resolves the ordered gh stack frontier and validates an optional pin", async () => {
     const { directory, store } = await initializedStore();
     const stack = await makeGitStack(directory);
-    const output = `◯ main
-◯ stack/merged
-◯ stack/closed
-◉ stack/open (current)
-`;
+    const output = `${JSON.stringify(
+      {
+        trunk: "main",
+        currentBranch: "stack/open",
+        branches: [
+          {
+            name: "stack/merged",
+            head: stack.mergedSha,
+            isMerged: true,
+            isQueued: false,
+            needsRebase: false,
+            pr: { number: 10, state: "MERGED" },
+          },
+          {
+            name: "stack/closed",
+            isMerged: false,
+            isQueued: false,
+            needsRebase: false,
+            pr: { number: 13, state: "CLOSED" },
+          },
+          {
+            name: "stack/open",
+            head: stack.openSha,
+            isCurrent: true,
+            isMerged: false,
+            isQueued: false,
+            needsRebase: true,
+            pr: { number: 11, state: "OPEN" },
+          },
+        ],
+      },
+      null,
+      2
+    )}\n`;
 
-    await withFakeGt({
+    await withFakeGhStack({
       directory,
       output,
       operation: async () => {
@@ -458,7 +478,7 @@ describe("Store", () => {
             prs: [10, 11, 12],
           })
         ).rejects.toThrow(
-          "frontier pin mismatch: missing from gt: 12; extra in gt: 13"
+          "frontier pin mismatch: missing from the stack: 12; extra in the stack: 13"
         );
         await expect(
           store.frontier.set({
@@ -466,7 +486,7 @@ describe("Store", () => {
             prs: [13, 10, 11],
           })
         ).rejects.toThrow(
-          "frontier pin mismatch: order differs: expected 13,10,11; gt 10,13,11"
+          "frontier pin mismatch: order differs: expected 13,10,11; stack 10,13,11"
         );
         await expect(
           store.frontier.set({
@@ -478,21 +498,120 @@ describe("Store", () => {
     });
   });
 
-  it("rejects unparseable Graphite output loudly", async () => {
+  it("treats a queued PR as the lowest unmerged one", async () => {
+    const { directory, store } = await initializedStore();
+    const stack = await makeGitStack(directory);
+    const output = `${JSON.stringify({
+      trunk: "main",
+      branches: [
+        {
+          name: "stack/merged",
+          head: stack.mergedSha,
+          pr: { number: 10, state: "MERGED" },
+        },
+        {
+          name: "stack/open",
+          head: stack.openSha,
+          pr: { number: 11, state: "QUEUED" },
+        },
+      ],
+    })}\n`;
+
+    await withFakeGhStack({
+      directory,
+      output,
+      operation: async () => {
+        const resolved = await store.frontier.set({ repo: stack.repo });
+        expect(resolved.prs.map((row) => row.state)).toEqual([
+          "MERGED",
+          "QUEUED",
+        ]);
+        expect(resolved.lowestUnmerged).toBe(11);
+      },
+    });
+  });
+
+  it("rejects unusable gh stack output loudly", async () => {
     const { directory, store } = await initializedStore();
     const stack = await makeGitStack(directory);
 
-    await withFakeGt({
-      directory,
-      output: "◯ main\nthis line is not Graphite output\n",
-      operation: async () => {
-        await expect(
-          store.frontier.set({ repo: stack.repo })
-        ).rejects.toThrow(
-          'gt log short output has an unparseable line 2: "this line is not Graphite output"'
-        );
+    const cases: readonly {
+      readonly output: string;
+      readonly message: string;
+    }[] = [
+      {
+        output: "not json at all\n",
+        message: "gh stack view --json did not return JSON",
       },
-    });
+      {
+        output: `${JSON.stringify({ trunk: "main" })}\n`,
+        message: "gh stack view --json has no branches array",
+      },
+      {
+        output: `${JSON.stringify({ branches: [{ head: stack.openSha }] })}\n`,
+        message: "gh stack view --json has a branch row without a name",
+      },
+      {
+        output: `${JSON.stringify({ branches: [{ name: "stack/open" }] })}\n`,
+        message:
+          "gh stack view --json reports no pull request for branch stack/open",
+      },
+      {
+        output: `${JSON.stringify({
+          branches: [
+            { name: "stack/open", pr: { number: 11, state: "WAT" } },
+          ],
+        })}\n`,
+        message:
+          "gh stack view --json gave PR #11 an unknown state: WAT",
+      },
+      {
+        output: `${JSON.stringify({
+          branches: [{ name: "stack/open", pr: { state: "OPEN" } }],
+        })}\n`,
+        message:
+          "gh stack view --json gave branch stack/open an invalid PR number",
+      },
+      {
+        output: `${JSON.stringify({
+          branches: [
+            {
+              name: "stack/open",
+              head: "not-a-sha",
+              pr: { number: 11, state: "OPEN" },
+            },
+          ],
+        })}\n`,
+        message:
+          "gh stack view --json gave branch stack/open an invalid head SHA",
+      },
+      {
+        output: `${JSON.stringify({ branches: [] })}\n`,
+        message: "gh stack view --json returned an empty stack",
+      },
+      {
+        output: `${JSON.stringify({
+          branches: [
+            { name: "stack/merged", pr: { number: 10, state: "OPEN" } },
+            { name: "stack/open", pr: { number: 10, state: "OPEN" } },
+          ],
+        })}\n`,
+        message: "gh stack view --json contains duplicate pull requests",
+      },
+    ];
+
+    for (const { output, message } of cases) {
+      await rm(join(directory, "bin"), { force: true, recursive: true });
+      await withFakeGhStack({
+        directory,
+        output,
+        operation: async () => {
+          await expect(
+            store.frontier.set({ repo: stack.repo })
+          ).rejects.toThrow(message);
+        },
+      });
+    }
   });
 
   it("rejects malformed TSV, verdict, frontier, and inbox data", async () => {
