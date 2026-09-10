@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const EXTERNAL_SKILLS = ["loop", "run", "simplify", "skill-creator"];
+const EXTERNAL_SKILLS = ["loop", "run", "security-review", "simplify", "skill-creator"];
 const NON_SKILL_COMMANDS = ["goal"];
 const BUILTIN_AGENTS = ["general-purpose", "Explore"];
 const SKILL_RELATIVE_PREFIXES = ["references", "scripts", "playbooks"];
