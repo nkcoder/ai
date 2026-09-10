@@ -2,6 +2,14 @@
 
 A personal collection of AI resources — skills, agents, MCP servers, etc. This is a living collection; more categories will be added as they're picked up.
 
+## Installing
+
+[`install.sh`](install.sh) symlinks every skill in `skills/` and every agent in `agents/` into `~/.claude/skills/` and `~/.claude/agents/`, overriding anything already installed under the same name.
+
+```bash
+./install.sh
+```
+
 ## Agents
 
 - [`agents/dan-agent.md`](agents/dan-agent.md) — routing target for `/dan-mode`; reads the `dan-mode` skill in full before any work.
