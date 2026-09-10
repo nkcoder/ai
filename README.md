@@ -58,6 +58,7 @@ A personal collection of AI resources — skills, agents, MCP servers, etc. This
 - [`skills/principle-type-system-discipline/`](skills/principle-type-system-discipline/SKILL.md) — make illegal states unrepresentable; brand primitives, parse at boundaries, exhaust variants.
 - [`skills/recall/`](skills/recall/SKILL.md) — reconstruct recent working context from chat history and shared state into a tight current-state brief.
 - [`skills/reflect/`](skills/reflect/SKILL.md) — spawn three parallel review subagents over the active transcript and route learnings to concrete skill edits.
+- [`skills/setup-dstack/`](skills/setup-dstack/SKILL.md) — configure which model each dstack role runs on, into the register the routed skills read.
 - [`skills/show-me-your-work/`](skills/show-me-your-work/SKILL.md) — keep a reviewable decision trail (TSV log) for long-running or unattended work.
 - [`skills/swarm/`](skills/swarm/SKILL.md) — fan out N parallel workers, drain them, return one report.
 - [`skills/tdd/`](skills/tdd/SKILL.md) — write a failing test then make it pass, when explicitly requested or the bug has an obvious cheap test target.
