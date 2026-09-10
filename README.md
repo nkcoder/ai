@@ -4,7 +4,7 @@ A personal collection of AI resources — skills, agents, MCP servers, etc. This
 
 ## Installing
 
-[`install.sh`](install.sh) symlinks every skill in `skills/` and every agent in `agents/` into `~/.claude/skills/` and `~/.claude/agents/`, overriding anything already installed under the same name.
+[`install.sh`](install.sh) symlinks every skill in `skills/` and every agent in `agents/` into `~/.claude/skills/` and `~/.claude/agents/`. It replaces symlinks it already owns. Anything else under the same name is left alone and reported, so a hand-written skill is never deleted, and the run exits non-zero so a script notices. Pass `--force` to replace those too.
 
 ```bash
 ./install.sh
