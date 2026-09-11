@@ -1,0 +1,26 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "dstack",
+  "description": "Daniel's personal Claude Code plugins.",
+  "owner": {
+    "name": "Daniel"
+  },
+  "plugins": [
+    {
+      "name": "dan-coding",
+      "description": "Personal collection of software engineering skills, agents, and principles for Claude Code.",
+      "author": {
+        "name": "Daniel"
+      },
+      "source": "./plugins/dan-coding"
+    },
+    {
+      "name": "dan-financial",
+      "description": "Warren Buffett's investment thinking system for stock and company analysis.",
+      "author": {
+        "name": "Daniel"
+      },
+      "source": "./plugins/dan-financial"
+    }
+  ]
+}
