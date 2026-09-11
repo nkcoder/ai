@@ -7,7 +7,7 @@ This repo is a Claude Code plugin marketplace (`dstack`) with two plugins: `dan-
 ## Installing
 
 ```
-/plugin marketplace add nkcoder/ai
+/plugin marketplace add nkcoder/dstack
 /plugin install dan-coding@dstack
 /plugin install dan-financial@dstack
 ```
